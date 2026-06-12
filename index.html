@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title id="dynamicPageTitle">四川法也律师事务所 · 办案地图</title>
+    <!-- Leaflet 核心库 -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <!-- 字体图标 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { background-color: #FFFAF0; font-family: 'Segoe UI', 'PingFang SC', Roboto, 'Microsoft YaHei', sans-serif; color: #4a3b1c; overflow-x: hidden; }
+        .app-container { max-width: 1600px; margin: 0 auto; padding: 20px 24px 40px; display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start; }
+        
+        /* 左侧信息面板样式 */
+        .info-panel-wrapper { flex: 1.2; min-width: 300px; max-width: 400px; position: sticky; top: 20px; }
+        .info-panel { background: #FFFFFF; border-radius: 28px; box-shadow: 0 6px 18px rgba(0,0,0,0.05); border: 1px solid #f5e1b0; padding: 20px 20px; display: none; }
+        .info-panel .panel-title { display: flex; align-items: baseline; justify-content: space-between; border-left: 6px solid #F5CB86; padding-left: 16px; margin-bottom: 18px; flex-wrap: wrap; gap: 10px; }
+        .info-panel .panel-title h3 { font-size: 1.4rem; color: #b87c2e; display: inline-flex; align-items: center; gap: 12px; }
+        .info-panel .visit-count { font-size: 0.9rem; background: #FFFAF0; padding: 4px 12px; border-radius: 30px; color: #b87c2e; font-weight: bold; }
+        .info-panel .photo-gallery { display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 20px; max-height: 500px; overflow-y: auto; padding: 4px 2px; }
+        .photo-record { background: #FFF9EF; border-radius: 20px; width: 100%; padding: 12px; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.05); border: 1px solid #fae6bc; cursor: pointer; transition: all 0.2s; position: relative; }
+        .photo-record:hover { background: #fff5e6; transform: translateY(-2px); box-shadow: 0 6px 12px rgba(0,0,0,0.08); }
+        .photo-record .thumbnail-strip { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-bottom: 8px; }
+        .photo-record .thumbnail-strip img { width: 70px; height: 70px; object-fit: cover; border-radius: 12px; border: 1px solid #F5CB86; transition: 0.1s; }
+        .record-desc { font-size: 0.8rem; color: #9b7b42; margin: 8px 0 4px; word-break: break-word; background: #fff3e0; padding: 5px 8px; border-radius: 16px; font-weight: 500; }
+        .record-actions { display: flex; justify-content: center; gap: 12px; margin-top: 10px; }
+        .del-record-btn, .edit-record-btn { background: #ffe1b3; border: none; border-radius: 30px; padding: 6px 14px; font-size: 0.7rem; cursor: pointer; color: #a5581c; display: inline-flex; align-items: center; gap: 6px; font-weight: bold; }
+        .edit-record-btn { background: #f5e1b0; }
+        .del-record-btn:hover, .edit-record-btn:hover { background: #e6c68b; }
+        .click-detail-hint { font-size: 0.65rem; color: #b88d40; margin-top: 8px; background: #fff0df; display: inline-block; padding: 2px 10px; border-radius: 20px; }
+        .upload-area { border-top: 1px dashed #F5CB86; padding-top: 20px; margin-top: 8px; display: flex; flex-direction: column; gap: 16px; }
+        .upload-row { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; }
+        .upload-group { display: flex; flex-direction: column; gap: 8px; flex: 1; min-width: 180px; }
+        .upload-group textarea { padding: 8px 12px; border-radius: 24px; border: 1px solid #F5CB86; background: #FFFAF0; font-family: inherit; resize: vertical; font-size: 0.8rem; }
+        .upload-btn, .url-add-btn, .submit-upload-btn { background: #F5CB86; border: none; padding: 10px 18px; border-radius: 40px; font-weight: bold; cursor: pointer; font-size: 0.8rem; }
+        .url-add-btn { background: #e6c68b; }
+        .submit-upload-btn { background: #b87c2e; color: white; }
+        .upload-preview { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 8px; background: #fff5e6; padding: 10px; border-radius: 20px; }
+        .preview-img-item { position: relative; width: 80px; height: 80px; border-radius: 12px; border: 1px solid #F5CB86; overflow: hidden; background: white; }
+        .preview-img-item img { width: 100%; height: 100%; object-fit: cover; }
+        .remove-preview-btn { position: absolute; top: -8px; right: -8px; background: #ff6b4a; color: white; border-radius: 50%; width: 22px; height: 22px; font-size: 12px; cursor: pointer; border: none; display: flex; align-items: center; justify-content: center; }
+        .admin-only-msg { font-size: 0.7rem; color: #a67c2e; background: #fff0df; padding: 4px 12px; border-radius: 30px; display: inline-block; }
+        .empty-tip { color: #b88d40; padding: 24px; text-align: center; font-style: italic; }
+        .map-right { flex: 2.5; min-width: 55%; }
+        .header, .nav-breadcrumb { width: 100%; }
+        .header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; margin-bottom: 20px; border-bottom: 2px solid #F5CB86; padding-bottom: 12px; width: 100%; }
+        .logo-area { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+        .logo-img { height: 60px; width: auto; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.05)); border-radius: 12px; cursor: pointer; }
+        .title-text h1 { font-size: 1.5rem; color: #c99f3a; }
+        .title-text p { font-size: 0.8rem; color: #b8860b; }
+        .admin-panel { display: flex; gap: 12px; align-items: center; background: #fff5e6; padding: 5px 15px; border-radius: 40px; flex-wrap: wrap; }
+        .admin-status { font-size: 0.8rem; font-weight: bold; color: #b87c2e; }
+        .admin-btn, .admin-manage-btn { background: #F5CB86; border: none; padding: 6px 16px; border-radius: 30px; font-size: 0.75rem; cursor: pointer; font-weight: bold; }
+        .admin-manage-btn { background: #b87c2e; color: white; margin-left: 4px; }
+        .admin-manage-btn:hover { background: #9a6624; }
+        .nav-breadcrumb { margin: 10px 0 12px 0; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; width: 100%; }
+        .back-btn { background: #F5CB86; border: none; padding: 5px 14px; border-radius: 40px; font-weight: bold; cursor: pointer; }
+        .crumb-text { font-size: 0.85rem; color: #997f40; background: rgba(245,203,134,0.2); padding: 4px 14px; border-radius: 30px; }
+        .map-wrapper { background: #fff8ed; border-radius: 28px; box-shadow: 0 8px 24px rgba(0,0,0,0.05); overflow: hidden; border: 1px solid #F5CB86; }
+        #map { height: 540px; width: 100%; background-color: #FFF8F0; }
+        .click-hint { background: #FFF0DF; border-radius: 20px; padding: 10px 16px; margin-bottom: 16px; text-align: center; font-size: 0.85rem; color: #b87c2e; border-left: 4px solid #F5CB86; display: flex; align-items: center; justify-content: center; gap: 8px; }
+        footer { text-align: center; margin-top: 30px; font-size: 0.7rem; color: #cbae74; width: 100%; }
+        @media (max-width: 850px) { .app-container { flex-direction: column; } .info-panel-wrapper { max-width: 100%; position: static; } .map-right { width: 100%; } }
+        
+        .leaflet-tooltip.permanent-tooltip { background-color: #F5CB86; color: #4a3412; font-weight: bold; font-size: 12px; padding: 4px 10px; border-radius: 20px; white-space: nowrap; }
+        .hover-photo-thumb { display: inline-block; width: 50px; height: 50px; object-fit: cover; border-radius: 8px; margin: 2px; border: 1px solid #F5CB86; }
+        
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 2000; justify-content: center; align-items: center; }
+        .modal-content { background: #FFFAF0; border-radius: 32px; padding: 20px; width: 90%; max-width: 850px; border: 2px solid #F5CB86; box-shadow: 0 10px 25px rgba(0,0,0,0.3); max-height: 85vh; overflow-y: auto; position: relative; }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #f5e1b0; padding-bottom: 10px; margin-bottom: 16px; }
+        .modal-header h3 { color: #b87c2e; margin: 0; display: flex; align-items: center; gap: 8px; }
+        .close-modal-btn { background: none; border: none; font-size: 1.6rem; cursor: pointer; color: #b87c2e; transition: 0.1s; line-height: 1; padding: 0 8px; }
+        .close-modal-btn:hover { color: #8b5e1c; }
+        .detail-photo-grid { display: flex; flex-wrap: wrap; gap: 16px; justify-content: center; margin: 20px 0; }
+        .detail-photo-grid img { width: 150px; height: 150px; object-fit: cover; border-radius: 20px; cursor: pointer; border: 2px solid #F5CB86; transition: 0.1s; }
+        .detail-photo-grid img:hover { transform: scale(1.02); box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
+        .click-hint-text { text-align: center; font-size: 0.8rem; color: #b88d40; margin-top: 8px; font-style: italic; }
+        
+        .fullscreen-img-modal .modal-content { max-width: 90vw; background: #2c2c2c; text-align: center; padding: 10px; position: relative; }
+        .fullscreen-img-modal .modal-header { border-bottom: none; justify-content: flex-end; padding-bottom: 0; margin-bottom: 5px; }
+        .fullscreen-img-modal .close-modal-btn { color: #F5CB86; font-size: 2rem; }
+        .fullscreen-img-container { position: relative; display: flex; align-items: center; justify-content: center; min-height: 50vh; }
+        .fullscreen-img-container img { max-width: 85vw; max-height: 75vh; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
+        .nav-arrow { position: absolute; top: 50%; transform: translateY(-50%); background: rgba(0,0,0,0.6); color: #F5CB86; border: none; font-size: 2.5rem; cursor: pointer; padding: 10px 15px; border-radius: 50%; width: 50px; height: 50px; display: flex; align-items: center; justify-content: center; transition: 0.2s; z-index: 10; }
+        .nav-arrow:hover { background: rgba(0,0,0,0.8); color: white; }
+        .nav-arrow-left { left: 10px; }
+        .nav-arrow-right { right: 10px; }
+        .photo-counter { text-align: center; color: #F5CB86; margin-top: 10px; font-size: 0.9rem; background: rgba(0,0,0,0.5); display: inline-block; padding: 4px 12px; border-radius: 30px; }
+        .fullscreen-footer { display: flex; justify-content: center; margin-top: 12px; }
+        
+        .strings-editor-grid { display: grid; grid-template-columns: 1fr 2fr; gap: 12px; margin-bottom: 10px; align-items: center; }
+        .edit-name-btn { background: #F5CB86; border: none; border-radius: 30px; padding: 4px 12px; font-size: 0.7rem; cursor: pointer; }
+        
+        .existing-photos-section { margin-bottom: 20px; border-bottom: 1px solid #f5e1b0; padding-bottom: 16px; }
+        .existing-photos-section h4 { font-size: 0.9rem; color: #b87c2e; margin-bottom: 12px; }
+        .existing-photos-list { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-start; }
+        .existing-photo-item { position: relative; width: 100px; border-radius: 12px; border: 1px solid #F5CB86; background: #fff8ec; padding: 6px; text-align: center; }
+        .existing-photo-item img { width: 100%; height: 90px; object-fit: cover; border-radius: 8px; cursor: pointer; }
+        .del-photo-btn { background: #ff9f6e; border: none; color: white; font-size: 0.7rem; border-radius: 30px; padding: 4px 8px; margin-top: 6px; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; font-weight: bold; transition: 0.1s; }
+        .del-photo-btn:hover { background: #e6451c; }
+        .edit-record-photo-preview { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
+        .edit-record-photo-preview img { width: 80px; height: 80px; object-fit: cover; border-radius: 10px; border: 1px solid #F5CB86; }
+        .file-input-label { background: #F5CB86; display: inline-block; padding: 8px 16px; border-radius: 40px; cursor: pointer; margin-top: 8px; font-size: 0.8rem; }
+        .edit-url-add-btn { margin-top: 8px; background: #e6c68b; }
+    </style>
+</head>
+<body>
+<div class="app-container">
+    <div class="header">
+        <div class="logo-area">
+            <img id="siteLogo" class="logo-img" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAGQAAABkCAYAAABw4pVUAAAACXBIWXMAAAsTAAALEwEAmpwYAAAF8WlUWHRYTUw6Y29tLmFkb2JlLnhtcAAAAAAAPD94cGFja2V0IGJlZ2luPSLvu78iIGlkPSJXNU0wTXBDZWhpSHpyZVN6TlRjemtjOWQiPz4gPHg6eG1wbWV0YSB4bWxuczp4PSJhZG9iZTpuczptZXRhLyIgeDp4bXB0az0iQWRvYmUgWE1QIENvcmUgNS42LWMxNDUgNzkuMTYzNDk5LCAyMDE4LzA4LzEzLTE2OjQwOjIyICAgICAgICAiPiA8cmRmOlJERiB4bWxuczpyZGY9Imh0dHA6Ly93d3cudzMub3JnLzE5OTkvMDIvMjItcmRmLXN5bnRheC1ucyMiPiA8cmRmOkRlc2NyaXB0aW9uIHJkZjphYm91dD0iIiB4bWxuczp4bXA9Imh0dHA6Ly9ucy5hZG9iZS5jb20veGFwLzEuMC8iIHhtbG5zOnhtcE1NPSJodHRwOi8vbnMuYWRvYmUuY29tL3hhcC8xLjAvbW0vIiB4bWxuczpzdEV2dD0iaHR0cDovL25zLmFkb2JlLmNvbS94YXAvMS4wL3NUeXBlL1Jlc291cmNlRXZlbnQjIiB4bWxuczpkYz0iaHR0cDovL3B1cmwub3JnL2RjL2VsZW1lbnRzLzEuMS8iIHhtbG5zOnBob3Rvc2hvcD0iaHR0cDovL25zLmFkb2JlLmNvbS9waG90b3Nob3AvMS4wLyIgeG1wOkNyZWF0b3JUb29sPSJBZG9iZSBQaG90b3Nob3AgQ0MgMjAxOSAoTWFjaW50b3NoKSIgeG1wOkNyZWF0ZURhdGU9IjIwMjUtMDEtMTVUMTI6MDA6MDArMDg6MDAiIHhtcDpNZXRhZGF0YURhdGU9IjIwMjUtMDEtMTVUMTI6MDA6MDArMDg6MDAiIHhtcDpNb2RpZnlEYXRlPSIyMDI5LTAxLTE1VDEyOjAwOjAwKzA4OjAwIiB4bXBNTTpJbnN0YW5jZUlEPSJ4bXAuaWlkOmEwYjBjNTQwLWRjZjAtNDc0YS1hOTJmLWU2YzA5NzA5N2YzYyIgeG1wTU06RG9jdW1lbnRJRD0iYWRvYmU6ZG9jaWQ6cGhvdG9zaG9wOjA2YzU0YzM3LTEzOTYtNTc0YS1hM2U2LWQwYWMxZWNlN2Q5MSIgeG1wTU06T3JpZ2luYWxEb2N1bWVudElEPSJ4bXAuZGlkOjMyYzU2YzQzLWY5NjgtNDI3Ny1hODk3LThlYzE3ZDRlYzQ1NCIgZGM6Zm9ybWF0PSJpbWFnZS9wbmciIHBob3Rvc2hvcDpDb2xvck1vZGU9IjMiPiA8eG1wTU06SGlzdG9yeT4gPHJkZjpTZXE+IDxyZGY6bGkgc3RFdnQ6YWN0aW9uPSJjcmVhdGVkIiBzdEV2dDppbnN0YW5jZUlEPSJ4bXAuaWlkOjMyYzU2YzQzLWY5NjgtNDI3Ny1hODk3LThlYzE3ZDRlYzQ1NCIgc3RFdnQ6d2hlbj0iMjAyNS0wMS0xNVQxMjowMDowMCswODowMCIgc3RFdnQ6c29mdHdhcmVBZ2VudD0iQWRvYmUgUGhvdG9zaG9wIENDIDIwMTkgKE1hY2ludG9zaCkiLz4gPC9yZGY6U2VxPiA8L3htcE1NOkhpc3Rvcnk+IDwvcmRmOkRlc2NyaXB0aW9uPiA8L3JkZjpSREY+IDwveDp4bXBtZXRhPiA8P3hwYWNrZXQgZW5kPSJyIj8+AAACw0lEQVR4nO2dzW4TQRDHZ+v4I4kQcSm9VEpABS9BXHkCijhxB5R7JV6gBw694IUnQIiACigFRBz4aGuHYNLajjdZb+0dO3b+T2plvXb2N7OZnfHucjqdLpFIpJeJSZHIZDKRQqFQKhQKpUKhUCqUSqVKJBKJRCIbjUZyOp2KRCLDyUlOIhFJJBKJRCKRbDY7m81mRqPR6XQ6ZbPZmUwmk3K5XCqXy6kMBYWc5EQikUgkEolEIvqJRCL6iUQi+olEIvqJRCL6iUQi+olEIvqJRCL6iUQi+olEIvqJRCL6iUQi+olEIvqJ+PzxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6PZ4m4Npk0TSR9yWRiC+m3TieTrtfrzmAwoO12S9vtlna7He12O9rPZmfD4ZBGo5Gz2WxcLpfLZDKZTCaTsVgs5nK5nMvlcrlYLJYikUgkEolEIpFIJBKJbDY7m81mRqNR6XQ6ZXPZbCqXy6VyqVTKZDKpVCqVKpVKpVKpVCqVSqVKpVKpVCqVSqVSqVQqlUqlUqlUKpVKpVKpVCqVSqVSKpVKpVIplUqlUqmUy+VyuVwul8vlcrlcrlAolQqFQqFQKJQKhUKpVCiUSoVCoVAqFUqlQqlUKBQKhUKhUCqUSoVSqVAoFAqFQqFQKpVKpVKpUCgUCoVCoVAolUqlUqlUKpVKpVKpVCqVSqVSqVQqlUqlUqlUKpVKpVKpVCqVSqVSqVQqlUqlUqlUKpVKpVKpVCqVSqVSqVQqlUqlUqlUKpVKpVKpVCqVSqVSqVQqlUqlUqlUKpVKpVKpVCqVSqVSqVQqlUqlUqlUKpVKpVKpVCqVSqVSqVQqlUqlUqlUKpVKpVKpVCr9j/8C/F/+7QEQgSdAAAAAAElFTkSuQmCC" alt="法也律师事务所logo">
+            <button id="uploadLogoBtn" class="upload-logo-btn" style="display: none;"><i class="fas fa-camera"></i> 更换LOGO</button>
+            <input type="file" id="logoFileInput" accept="image/*" style="display: none;">
+            <div class="title-text">
+                <h1 id="mainTitle">四川法也律师事务所 · 办案地图</h1>
+                <p id="subTitle">专注婚姻家事 · 守护家庭幸福</p>
+            </div>
+        </div>
+        <div class="admin-panel">
+            <span class="admin-status" id="adminStatusText">👤 访客模式</span>
+            <button id="adminLoginBtn" class="admin-btn">管理员登录</button>
+            <button id="adminLogoutBtn" class="admin-btn logout" style="display: none;">退出管理</button>
+            <button id="manageBtn" class="admin-manage-btn" style="display: none;"><i class="fas fa-edit"></i> 管理省市</button>
+            <button id="manageDistrictBtn" class="admin-manage-btn" style="display: none;"><i class="fas fa-city"></i> 管理成都区县</button>
+            <button id="editAllTextsBtn" class="admin-manage-btn" style="display: none;"><i class="fas fa-language"></i> 编辑所有文案</button>
+        </div>
+    </div>
+    <div class="nav-breadcrumb">
+        <button id="backBtn" class="back-btn"><i class="fas fa-arrow-left"></i> <span id="backBtnText">返回上级</span></button>
+        <span id="breadcrumbLabel" class="crumb-text">当前层级：全国省份</span>
+    </div>
+
+    <div class="info-panel-wrapper">
+        <div class="click-hint">
+            <i class="fas fa-map-marker-alt"></i> <span id="clickHintSpan">📍 点击地图上的具体地址，查看律师办案动态 ✨</span>
+        </div>
+        <div id="infoPanel" class="info-panel">
+            <div class="panel-title">
+                <h3><span id="locationNameSpan"></span><button id="editNameBtn" class="edit-name-btn" style="display:none;"><i class="fas fa-pencil-alt"></i> 编辑名称</button></h3>
+                <span id="visitCountSpan" class="visit-count">抵达次数: 0</span>
+            </div>
+            <div id="photoGallery" class="photo-gallery"><div class="empty-tip">✨ 点击地点查看全部办案留影</div></div>
+            <div id="uploadArea" class="upload-area" style="display: none;">
+                <div class="upload-group">
+                    <textarea id="photoDescInput" rows="2" placeholder="本次办案备注（如：调解现场、取证过程等）"></textarea>
+                </div>
+                <div class="upload-row">
+                    <input type="file" id="photoInput" accept="image/*" multiple style="display:none">
+                    <button id="selectPhotosBtn" class="upload-btn"><i class="fas fa-images"></i> 选择照片(多选)</button>
+                    <button id="addUrlBtn" class="url-add-btn"><i class="fas fa-link"></i> 添加图片URL</button>
+                    <button id="submitUploadBtn" class="submit-upload-btn"><i class="fas fa-upload"></i> 提交本次抵达</button>
+                </div>
+                <div id="uploadPreview" class="upload-preview" style="display: none;"></div>
+                <span class="admin-only-msg">✅ 管理员: 可混合上传本地照片和图片URL，支持多张照片+备注</span>
+            </div>
+        </div>
+    </div>
+    <div class="map-right">
+        <div class="map-wrapper"><div id="map"></div></div>
+    </div>
+    <footer id="footerText">© 四川法也律师事务所 | 地名永久显示 | 鼠标悬停查看照片 | 管理员可增删省市</footer>
+</div>
+
+<!-- 全局文案管理模态框 -->
+<div id="allTextsModal" class="modal"><div class="modal-content"><h3><i class="fas fa-edit"></i> 编辑所有页面文案</h3><div id="stringsEditorContainer" style="max-height: 60vh; overflow-y: auto;"></div><div style="text-align:center;"><button id="saveAllTextsBtn">💾 保存</button><button id="resetAllTextsBtn">🔄 恢复默认</button><button id="closeAllTextsModalBtn">关闭</button></div></div></div>
+
+<!-- 办案详情模态框 -->
+<div id="recordDetailModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3><i class="fas fa-images"></i> 办案详情</h3>
+            <button class="close-modal-btn" id="closeRecordDetailBtn">&times;</button>
+        </div>
+        <div id="recordDetailContent"></div>
+    </div>
+</div>
+
+<!-- 全屏图片查看器 -->
+<div id="fullscreenImageModal" class="modal fullscreen-img-modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <button class="close-modal-btn" id="closeFullscreenBtn">&times;</button>
+        </div>
+        <div class="fullscreen-img-container">
+            <button class="nav-arrow nav-arrow-left" id="prevImageBtn"><i class="fas fa-chevron-left"></i></button>
+            <img id="fullscreenImage" src="" alt="放大图片">
+            <button class="nav-arrow nav-arrow-right" id="nextImageBtn"><i class="fas fa-chevron-right"></i></button>
+        </div>
+        <div class="fullscreen-footer">
+            <span id="photoCounter" class="photo-counter"></span>
+        </div>
+    </div>
+</div>
+
+<!-- 编辑记录模态框（支持删除图片 + 追加照片+URL） -->
+<div id="editRecordModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3><i class="fas fa-edit"></i> 编辑办案记录</h3>
+            <button class="close-modal-btn" id="closeEditModalBtn">&times;</button>
+        </div>
+        <div id="editRecordContent">
+            <label>📝 备注文字：</label>
+            <textarea id="editDescInput" rows="3" style="width:100%; margin: 8px 0; border-radius: 20px; border:1px solid #F5CB86; padding: 8px;"></textarea>
+            
+            <div class="existing-photos-section">
+                <h4><i class="fas fa-images"></i> 现有照片（点击图片预览，删除按钮移除）</h4>
+                <div id="existingPhotosList" class="existing-photos-list"></div>
+            </div>
+
+            <label>📸 追加新照片（可多选图片或添加URL）：</label>
+            <div>
+                <input type="file" id="editPhotoInput" accept="image/*" multiple style="display:none">
+                <button id="selectEditPhotosBtn" class="admin-btn" style="background:#F5CB86;"><i class="fas fa-plus-circle"></i> 选择照片文件</button>
+                <button id="editAddUrlBtn" class="admin-btn edit-url-add-btn" style="background:#e6c68b;"><i class="fas fa-link"></i> 添加图片URL</button>
+            </div>
+            <div id="editNewPhotoPreview" class="edit-record-photo-preview"></div>
+            <div style="margin-top: 16px; text-align:center;">
+                <button id="saveEditRecordBtn" class="admin-btn" style="background:#b87c2e; color:white;">💾 保存修改</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // ======================== 全文案管理系统 ========================
+    const DEFAULT_STRINGS = {
+        pageTitle: "四川法也律师事务所·办案地图", mainTitle: "四川法也律师事务所 · 办案地图", subTitle: "专注婚姻家事 · 守护家庭幸福",
+        footer: "© 四川法也律师事务所 | 地名永久显示 | 鼠标悬停查看照片 | 管理员可增删省市", backBtnText: "返回上级",
+        breadcrumbChina: "当前层级：全国省份", breadcrumbProvinceFormat: "{provinceName} · 下辖城市",
+        breadcrumbDistrict: "成都市 · 各区县", tooltipFormat: "{name} ({times}次)", hoverTooltipTitle: "办案次数: {times}",
+        noPhotoInTooltip: "暂无照片", arrivalCountPrefix: "抵达次数: ", photoEmptyTip: "✨ 点击地点查看全部办案留影", noPhotoGalleryTip: "📸 暂无办案留影",
+        uploadPhotosBtnText: "提交本次抵达", photoDescPlaceholder: "本次办案备注（如：调解现场、取证过程等）", deleteRecordBtnText: "删除记录",
+        editRecordBtnText: "编辑备注", recordDescPrefix: "📝 ", noDescText: "无备注",
+        adminOnlyMsg: "✅ 管理员: 可混合上传本地照片和图片URL，支持多张照片+备注", editNameBtnText: "编辑名称", manageModalTitle: "省市管理",
+        addProvinceLabel: "➕ 添加省份", addProvincePlaceholder: "省份名称", addProvinceBtn: "添加", delProvinceLabel: "❌ 删除省份",
+        delProvinceBtn: "删除选中省份", addCityLabel: "➕ 添加城市", addCityPlaceholder: "城市名称", addCityBtn: "添加",
+        delCityLabel: "❌ 删除城市", delCityBtn: "删除选中城市", districtManageTitle: "成都市区县管理", addDistrictLabel: "➕ 添加区县",
+        addDistrictPlaceholder: "区县名称", addDistrictBtn: "添加", delDistrictLabel: "❌ 删除区县", delDistrictBtn: "删除选中区县",
+        delDistrictWarning: "注：删除会清除该区县的所有照片数据", closeBtn: "关闭", saveSuccessAlert: "文案已更新，页面将刷新显示！",
+        confirmDeleteProvinceMsg: "确定删除省份“{name}”及其所有城市和照片数据吗？此操作不可撤销。",
+        confirmDeleteCityMsg: "确定删除城市“{name}”及其所有照片数据吗？", confirmDeleteDistrictMsg: "确定删除区县“{name}”及其所有照片数据吗？",
+        chengduProtectedMsg: "成都市是核心城市，不可删除", scProtectedMsg: "四川省是核心数据，不可删除",
+        adminPwdPrompt: "管理员密码:", adminPwdError: "密码错误", adminLoginSuccess: "管理员已登录", adminLogoutMsg: "已退出管理员模式",
+        logoUpdateAlert: "LOGO已更新", onlyAdminLogo: "仅管理员可更换LOGO", uploadRecordSuccess: "已记录一次抵达！",
+        clickHintText: "📍 点击地图上的具体地址，查看律师办案动态 ✨",
+        clickPhotoHint: "💡 点击图片查看留影",
+        clickCardDetailHint: "💡 点击卡片查看详情"
+    };
+    let currentStrings = { ...DEFAULT_STRINGS };
+    function loadAllStrings() { const saved = localStorage.getItem("lawyer_all_strings"); if(saved) try { currentStrings = { ...DEFAULT_STRINGS, ...JSON.parse(saved) }; } catch(e) {} else currentStrings = { ...DEFAULT_STRINGS }; }
+    function saveAllStrings() { localStorage.setItem("lawyer_all_strings", JSON.stringify(currentStrings)); }
+    function applyStaticTexts() { 
+        document.title = currentStrings.pageTitle; 
+        document.getElementById("mainTitle").innerText = currentStrings.mainTitle; 
+        document.getElementById("subTitle").innerText = currentStrings.subTitle; 
+        document.getElementById("footerText").innerHTML = currentStrings.footer; 
+        document.getElementById("backBtnText").innerText = currentStrings.backBtnText; 
+        if(document.getElementById("breadcrumbLabel")) updateBreadcrumbByLevel(); 
+        document.getElementById("editNameBtn") && (document.getElementById("editNameBtn").innerHTML = `<i class="fas fa-pencil-alt"></i> ${currentStrings.editNameBtnText}`); 
+        document.getElementById("photoDescInput").placeholder = currentStrings.photoDescPlaceholder; 
+        document.querySelector(".admin-only-msg").innerHTML = currentStrings.adminOnlyMsg;
+        const clickHintSpan = document.getElementById("clickHintSpan");
+        if(clickHintSpan) clickHintSpan.innerHTML = currentStrings.clickHintText;
+        if(currentSelectedLocation) updatePanelByLocation(); 
+    }
+    function updateBreadcrumbByLevel() { const span = document.getElementById("breadcrumbLabel"); if(currentLevel === "china") span.innerHTML = currentStrings.breadcrumbChina; else if(currentLevel === "province" && currentProvinceId) { let prov = provincesData.find(p=>p.provinceId===currentProvinceId); if(prov) span.innerHTML = currentStrings.breadcrumbProvinceFormat.replace("{provinceName}", getDisplayName("province", prov.provinceId, prov.name)); } else if(currentLevel === "district") span.innerHTML = currentStrings.breadcrumbDistrict; }
+    function formatTooltipText(name, times) { return currentStrings.tooltipFormat.replace("{name}", name).replace("{times}", times); }
+    function getHoverTitleHtml(name, times, photosHtml) { return `<div style="text-align:center;"><strong>${escapeHtml(name)}</strong><br>${currentStrings.hoverTooltipTitle.replace("{times}", times)}</div><div class="hover-photos-container">${photosHtml || currentStrings.noPhotoInTooltip}</div>`; }
+    
+    // 角色权限
+    let userRole = "guest";
+    function isSuperAdmin() { return userRole === "superadmin"; }
+    function isNormalAdmin() { return userRole === "normaladmin"; }
+    function canUpload() { return userRole === "superadmin" || userRole === "normaladmin"; }
+    function setUserRole(role) {
+        userRole = role;
+        localStorage.setItem("lawyer_user_role", role);
+        const isSuper = isSuperAdmin();
+        const isNormal = isNormalAdmin();
+        const isGuest = !isSuper && !isNormal;
+        const statusText = document.getElementById("adminStatusText");
+        if(isSuper) statusText.innerHTML = "👑 超级管理员模式";
+        else if(isNormal) statusText.innerHTML = "🛠️ 普通管理员模式 (仅可上传)";
+        else statusText.innerHTML = "👤 访客模式";
+        document.getElementById("manageBtn").style.display = isSuper ? "inline-flex" : "none";
+        document.getElementById("manageDistrictBtn").style.display = isSuper ? "inline-flex" : "none";
+        document.getElementById("editAllTextsBtn").style.display = isSuper ? "inline-flex" : "none";
+        document.getElementById("uploadLogoBtn").style.display = isSuper ? "inline-flex" : "none";
+        document.getElementById("adminLoginBtn").style.display = isGuest ? "inline-block" : "none";
+        document.getElementById("adminLogoutBtn").style.display = !isGuest ? "inline-block" : "none";
+        const editNameBtn = document.getElementById("editNameBtn");
+        if(editNameBtn) editNameBtn.style.display = (isSuper && currentSelectedLocation) ? "inline-block" : "none";
+        if(currentSelectedLocation) {
+            updatePanelByLocation();
+            const uploadArea = document.getElementById("uploadArea");
+            if(canUpload()) uploadArea.style.display = "flex";
+            else uploadArea.style.display = "none";
+        }
+        renderMap();
+    }
+    
+    let map, currentLevel = "china", currentProvinceId = null, markersLayer = null, currentSelectedLocation = null;
+    let provincesData = [], citiesData = {}, chengduDistricts = [];
+    let editTarget = { type: null, id: null, groupId: null, oldDesc: "", pendingPhotos: [], currentPhotos: [] };
+    // 临时上传队列 (存储图片URL，包括base64或http链接)
+    let pendingUploadPhotos = [];
+
+    function initDefaultDistricts() { return ["锦江区","青羊区","金牛区","武侯区","成华区","龙泉驿区","青白江区","新都区","温江区","双流区","郫都区","新津区","金堂县","大邑县","蒲江县","都江堰市","彭州市","邛崃市","崇州市","简阳市","天府新区","高新区"]; }
+    function initDefaultData() { let defaultProvinces = [{ name: "北京市", lat: 39.9042, lng: 116.4074, provinceId: "bj" },{ name: "天津市", lat: 39.3434, lng: 117.3616, provinceId: "tj" },{ name: "上海市", lat: 31.2304, lng: 121.4737, provinceId: "sh" },{ name: "重庆市", lat: 29.4316, lng: 106.9123, provinceId: "cq" },{ name: "河北省", lat: 38.0428, lng: 114.5149, provinceId: "heb" },{ name: "山西省", lat: 37.8735, lng: 112.5624, provinceId: "sx" },{ name: "辽宁省", lat: 41.8045, lng: 123.4328, provinceId: "ln" },{ name: "吉林省", lat: 43.896, lng: 125.3245, provinceId: "jl" },{ name: "黑龙江省", lat: 45.8038, lng: 126.534, provinceId: "hlj" },{ name: "江苏省", lat: 32.0415, lng: 118.7674, provinceId: "js" },{ name: "浙江省", lat: 30.2741, lng: 120.1551, provinceId: "zj" },{ name: "安徽省", lat: 31.8612, lng: 117.285, provinceId: "ah" },{ name: "福建省", lat: 26.0789, lng: 119.2965, provinceId: "fj" },{ name: "江西省", lat: 28.6765, lng: 115.8925, provinceId: "jx" },{ name: "山东省", lat: 36.6683, lng: 117.0205, provinceId: "sd" },{ name: "河南省", lat: 34.757, lng: 113.7537, provinceId: "hen" },{ name: "湖北省", lat: 30.5928, lng: 114.3055, provinceId: "hb" },{ name: "湖南省", lat: 28.2282, lng: 112.9388, provinceId: "hn" },{ name: "广东省", lat: 23.1291, lng: 113.2644, provinceId: "gd" },{ name: "海南省", lat: 20.0198, lng: 110.3492, provinceId: "hain" },{ name: "四川省", lat: 30.5728, lng: 104.0668, provinceId: "sc" },{ name: "贵州省", lat: 26.5983, lng: 106.7074, provinceId: "gz" },{ name: "云南省", lat: 25.0443, lng: 102.7098, provinceId: "yn" },{ name: "陕西省", lat: 34.3416, lng: 108.9402, provinceId: "sax" },{ name: "甘肃省", lat: 36.0611, lng: 103.8343, provinceId: "gs" },{ name: "青海省", lat: 36.6232, lng: 101.7801, provinceId: "qh" },{ name: "台湾省", lat: 23.6978, lng: 120.9605, provinceId: "tw" },{ name: "内蒙古", lat: 40.8175, lng: 111.6708, provinceId: "nmg" },{ name: "广西", lat: 22.8152, lng: 108.3275, provinceId: "gx" },{ name: "西藏", lat: 29.6473, lng: 91.1405, provinceId: "xz" },{ name: "宁夏", lat: 38.4712, lng: 106.2587, provinceId: "nx" },{ name: "新疆", lat: 43.8256, lng: 87.6168, provinceId: "xj" },{ name: "香港", lat: 22.3193, lng: 114.1694, provinceId: "hk" },{ name: "澳门", lat: 22.1987, lng: 113.5439, provinceId: "mo" }];
+        let provinceCityMap = { sc:["成都市","绵阳市","德阳市","宜宾市","泸州市","南充市","乐山市","自贡市","眉山市","广安市","攀枝花市","内江市"], gd:["广州市","深圳市","珠海市","佛山市","惠州市","东莞市","中山市","江门市","湛江市","茂名市"], js:["南京市","苏州市","无锡市","常州市","徐州市","扬州市","南通市","镇江市"], zj:["杭州市","宁波市","温州市","嘉兴市","绍兴市","金华市","台州市"], sd:["济南市","青岛市","烟台市","潍坊市","淄博市","临沂市","济宁市"], hen:["郑州市","洛阳市","南阳市","新乡市","信阳市","开封市"], hb:["武汉市","黄石市","宜昌市","襄阳市","荆州市","孝感市"], hn:["长沙市","株洲市","湘潭市","衡阳市","岳阳市","常德市"], fj:["福州市","厦门市","泉州市","漳州市","龙岩市","三明市"], ah:["合肥市","芜湖市","蚌埠市","马鞍山市","安庆市","黄山市"], jx:["南昌市","九江市","赣州市","上饶市","宜春市","吉安市"], heb:["石家庄市","唐山市","保定市","邯郸市","秦皇岛市","张家口市"], sx:["太原市","大同市","长治市","晋城市","运城市","临汾市"], ln:["沈阳市","大连市","鞍山市","抚顺市","锦州市","丹东市"], jl:["长春市","吉林市","四平市","辽源市","通化市","松原市"], hlj:["哈尔滨市","齐齐哈尔市","大庆市","牡丹江市","佳木斯市","绥化市"], gz:["贵阳市","遵义市","六盘水市","安顺市","毕节市","铜仁市"], yn:["昆明市","曲靖市","玉溪市","保山市","昭通市","丽江市"], sax:["西安市","宝鸡市","咸阳市","渭南市","延安市","汉中市"], gs:["兰州市","天水市","嘉峪关市","金昌市","酒泉市","张掖市"], qh:["西宁市","海东市","格尔木市"], nmg:["呼和浩特市","包头市","鄂尔多斯市","赤峰市","通辽市"], gx:["南宁市","柳州市","桂林市","梧州市","北海市","玉林市"], xz:["拉萨市","日喀则市","昌都市","林芝市"], nx:["银川市","石嘴山市","吴忠市","固原市"], xj:["乌鲁木齐市","克拉玛依市","吐鲁番市","哈密市","喀什地区"], bj:["北京市"], tj:["天津市"], sh:["上海市"], cq:["重庆市"], hain:["海口市","三亚市","三沙市"], tw:["台北市","高雄市"], hk:["香港岛"], mo:["澳门半岛"] };
+        let newCities = {}; for(let prov of defaultProvinces) { let pid = prov.provinceId; let cities = provinceCityMap[pid] || [prov.name+"市区"]; newCities[pid] = cities.map((c, idx) => ({ name: c, lat: prov.lat + (Math.random() - 0.5) * 0.8, lng: prov.lng + (Math.random() - 0.5) * 0.8, cityId: `${pid}_${idx}` })); }
+        let districtsObj = initDefaultDistricts().map((d,i) => ({ name: d, lat: 30.5728 + (Math.random() - 0.5) * 0.12, lng: 104.0668 + (Math.random() - 0.5) * 0.12, districtId: `cd_${i}` }));
+        localStorage.setItem("dynamic_provinces", JSON.stringify(defaultProvinces)); localStorage.setItem("dynamic_cities", JSON.stringify(newCities)); localStorage.setItem("chengdu_districts", JSON.stringify(districtsObj));
+        return { provinces: defaultProvinces, cities: newCities, districts: districtsObj };
+    }
+    function loadData() { let sp = localStorage.getItem("dynamic_provinces"), sc = localStorage.getItem("dynamic_cities"), sd = localStorage.getItem("chengdu_districts"); if(sp && sc) { provincesData = JSON.parse(sp); citiesData = JSON.parse(sc); } else { let def = initDefaultData(); provincesData = def.provinces; citiesData = def.cities; } chengduDistricts = sd ? JSON.parse(sd) : initDefaultData().districts; }
+    function saveData() { localStorage.setItem("dynamic_provinces", JSON.stringify(provincesData)); localStorage.setItem("dynamic_cities", JSON.stringify(citiesData)); localStorage.setItem("chengdu_districts", JSON.stringify(chengduDistricts)); }
+    function getDisplayName(type, id, def) { return localStorage.getItem(`custom_name_${type}_${id}`) || def; }
+    function setCustomName(type, id, newName) { localStorage.setItem(`custom_name_${type}_${id}`, newName); }
+    function getStorageKey(type, id) { return `lawyer_map_${type}_${id}`; }
+    function loadPhotoGroups(type, id) { return JSON.parse(localStorage.getItem(getStorageKey(type, id)) || "[]"); }
+    function addPhotoGroup(type, id, urls, desc) { let g = loadPhotoGroups(type, id); g.push({ id: Date.now(), date: new Date().toLocaleString(), photos: urls, desc: desc || "" }); localStorage.setItem(getStorageKey(type, id), JSON.stringify(g)); return g; }
+    function deletePhotoGroup(type, id, gid) { if(!isSuperAdmin()) return; let g = loadPhotoGroups(type, id); g = g.filter(gr=>gr.id!=gid); localStorage.setItem(getStorageKey(type, id), JSON.stringify(g)); return g; }
+    function replacePhotoGroupFull(type, id, gid, newPhotos, newDesc) { if(!isSuperAdmin()) return false; let groups = loadPhotoGroups(type, id); let target = groups.find(g => g.id == gid); if(target) { target.photos = newPhotos; target.desc = newDesc; localStorage.setItem(getStorageKey(type, id), JSON.stringify(groups)); return true; } return false; }
+    function getTimes(type, id) { return loadPhotoGroups(type, id).length; }
+    function getProvinceTotal(pid) { let total=0; (citiesData[pid]||[]).forEach(c=>{ if(pid==="sc"&&c.name==="成都市") chengduDistricts.forEach(d=>total+=getTimes("district",d.districtId)); else total+=getTimes("city",c.cityId); }); return total; }
+    function getRandomPhotosForLocation(type, id) { let groups = loadPhotoGroups(type, id), all=[]; groups.forEach(g=>g.photos.forEach(p=>all.push(p))); return all.slice(0,3); }
+    function getRandomPhotosForProvince(pid) { let all=[]; (citiesData[pid]||[]).forEach(c=>{ if(pid==="sc"&&c.name==="成都市") chengduDistricts.forEach(d=>{ loadPhotoGroups("district",d.districtId).forEach(g=>g.photos.forEach(p=>all.push(p))); }); else loadPhotoGroups("city",c.cityId).forEach(g=>g.photos.forEach(p=>all.push(p))); }); return all.slice(0,3); }
+    function getRandomPhotosForChengdu() { let all=[]; chengduDistricts.forEach(d=>{ loadPhotoGroups("district",d.districtId).forEach(g=>g.photos.forEach(p=>all.push(p))); }); return all.slice(0,3); }
+    function escapeHtml(str) { return String(str).replace(/[&<>]/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[m])); }
+    function bindMarkerWithHoverPhoto(marker, type, id, name, times, getPhotos) { marker.bindTooltip(formatTooltipText(name, times), { permanent: true, direction: 'top', offset: [0, -12], className: 'permanent-tooltip' }); marker.on('mouseover', function() { let photos = getPhotos ? getPhotos() : getRandomPhotosForLocation(type, id); let html = photos.length ? photos.map(p=>`<img src="${p}" class="hover-photo-thumb" onerror="this.style.display='none'">`).join('') : `<div>${currentStrings.noPhotoInTooltip}</div>`; marker.setTooltipContent(getHoverTitleHtml(name, times, html)); }); marker.on('mouseout', function() { marker.setTooltipContent(formatTooltipText(name, times)); }); }
+    function renderMap() { if(markersLayer) map.removeLayer(markersLayer); markersLayer = L.layerGroup().addTo(map); if(currentLevel === "china") { provincesData.forEach(p=>{ let dname = getDisplayName("province", p.provinceId, p.name); let m = L.marker([p.lat, p.lng]); bindMarkerWithHoverPhoto(m, "province", p.provinceId, dname, getProvinceTotal(p.provinceId), ()=>getRandomPhotosForProvince(p.provinceId)); m.on('click',()=>switchToProvince(p)); markersLayer.addLayer(m); }); map.setView([35.86,104.19],5); } else if(currentLevel === "province" && currentProvinceId) { (citiesData[currentProvinceId]||[]).forEach(c=>{ let dname = getDisplayName("city", c.cityId, c.name); let times = (currentProvinceId==="sc"&&c.name==="成都市") ? chengduDistricts.reduce((s,d)=>s+getTimes("district",d.districtId),0) : getTimes("city",c.cityId); let m = L.marker([c.lat, c.lng]); let getPhotos = (currentProvinceId==="sc"&&c.name==="成都市") ? ()=>getRandomPhotosForChengdu() : ()=>getRandomPhotosForLocation("city",c.cityId); bindMarkerWithHoverPhoto(m, "city", c.cityId, dname, times, getPhotos); m.on('click',()=>{ if(currentProvinceId==="sc"&&c.name==="成都市") switchToDistrict(); else selectLocation("city",c.cityId,dname); }); markersLayer.addLayer(m); }); let prov = provincesData.find(p=>p.provinceId===currentProvinceId); if(prov) map.setView([prov.lat, prov.lng], 7); } else if(currentLevel === "district") { chengduDistricts.forEach(d=>{ let dname = getDisplayName("district", d.districtId, d.name); let m = L.marker([d.lat, d.lng]); bindMarkerWithHoverPhoto(m, "district", d.districtId, dname, getTimes("district",d.districtId), ()=>getRandomPhotosForLocation("district",d.districtId)); m.on('click',()=>selectLocation("district",d.districtId,dname)); markersLayer.addLayer(m); }); map.setView([30.5728,104.0668],10); } }
+    function switchToProvince(prov) { currentLevel="province"; currentProvinceId=prov.provinceId; updateBreadcrumbByLevel(); renderMap(); clearPanel(); }
+    function switchToDistrict() { currentLevel="district"; updateBreadcrumbByLevel(); renderMap(); clearPanel(); }
+    function backToParent() { if(currentLevel==="province") { currentLevel="china"; currentProvinceId=null; updateBreadcrumbByLevel(); renderMap(); clearPanel(); } else if(currentLevel==="district") { let prov = provincesData.find(p=>p.provinceId==="sc"); if(prov) switchToProvince(prov); } }
+    function clearPanel() { document.getElementById("locationNameSpan").innerHTML = "请点击地图上的地点"; document.getElementById("visitCountSpan").innerHTML = `${currentStrings.arrivalCountPrefix}0`; document.getElementById("photoGallery").innerHTML = `<div class="empty-tip">${currentStrings.photoEmptyTip}</div>`; document.getElementById("uploadArea").style.display = "none"; document.getElementById("editNameBtn").style.display = "none"; document.getElementById("infoPanel").style.display = "none"; currentSelectedLocation = null; }
+    
+    let currentPhotoList = []; let currentPhotoIndex = 0;
+    function updateFullscreenImage() { if (currentPhotoList.length === 0) return; document.getElementById("fullscreenImage").src = currentPhotoList[currentPhotoIndex]; document.getElementById("photoCounter").innerText = `${currentPhotoIndex+1} / ${currentPhotoList.length}`; document.getElementById("prevImageBtn").style.visibility = currentPhotoIndex > 0 ? "visible" : "hidden"; document.getElementById("nextImageBtn").style.visibility = currentPhotoIndex < currentPhotoList.length - 1 ? "visible" : "hidden"; }
+    function showFullscreenWithList(photoUrls, startIndex) { currentPhotoList = photoUrls; currentPhotoIndex = startIndex; updateFullscreenImage(); document.getElementById("fullscreenImageModal").style.display = "flex"; }
+    
+    function showRecordDetail(type, id, groupId, clickedImgIndex = 0) {
+        let groups = loadPhotoGroups(type, id);
+        let group = groups.find(g => g.id == groupId);
+        if(!group) return;
+        let contentDiv = document.getElementById("recordDetailContent");
+        let photosHtml = `<div class="detail-photo-grid">` + group.photos.map((p, idx) => `<img src="${p}" class="detail-img" data-fullimg="${p}" data-index="${idx}" style="cursor:pointer;">`).join('') + `</div>`;
+        let hintHtml = `<div class="click-hint-text">${currentStrings.clickPhotoHint}</div>`;
+        contentDiv.innerHTML = `<div><strong>📝 备注：</strong> ${escapeHtml(group.desc || currentStrings.noDescText)}</div>${photosHtml}${hintHtml}`;
+        document.getElementById("recordDetailModal").style.display = "flex";
+        document.querySelectorAll("#recordDetailContent .detail-img").forEach(img => { img.addEventListener("click", (e) => { e.stopPropagation(); let idx = parseInt(img.getAttribute("data-index")); showFullscreenWithList(group.photos, idx); }); });
+    }
+    
+    // 预览待上传照片
+    function renderUploadPreview() {
+        const container = document.getElementById("uploadPreview");
+        if(pendingUploadPhotos.length === 0) { container.style.display = "none"; container.innerHTML = ""; return; }
+        container.style.display = "flex";
+        container.innerHTML = pendingUploadPhotos.map((url, idx) => `
+            <div class="preview-img-item">
+                <img src="${url}" onerror="this.src='https://via.placeholder.com/80?text=error'">
+                <button class="remove-preview-btn" data-idx="${idx}"><i class="fas fa-times"></i></button>
+            </div>
+        `).join('');
+        container.querySelectorAll('.remove-preview-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => { let idx = parseInt(btn.dataset.idx); pendingUploadPhotos.splice(idx,1); renderUploadPreview(); });
+        });
+    }
+    
+    function submitUpload() {
+        if(!canUpload() || !currentSelectedLocation) return;
+        if(pendingUploadPhotos.length === 0) { alert("请先添加照片（选择文件或图片URL）"); return; }
+        const desc = document.getElementById("photoDescInput").value.trim();
+        addPhotoGroup(currentSelectedLocation.type, currentSelectedLocation.id, pendingUploadPhotos, desc);
+        document.getElementById("photoDescInput").value = "";
+        pendingUploadPhotos = [];
+        renderUploadPreview();
+        selectLocation(currentSelectedLocation.type, currentSelectedLocation.id, currentSelectedLocation.name);
+        renderMap();
+        alert(currentStrings.uploadRecordSuccess);
+    }
+    
+    function openEditRecordModal(type, id, groupId) {
+        if(!isSuperAdmin()) return;
+        let groups = loadPhotoGroups(type, id);
+        let group = groups.find(g => g.id == groupId);
+        if(!group) return;
+        editTarget = { type, id, groupId, oldDesc: group.desc || "", pendingPhotos: [], currentPhotos: [...(group.photos || [])] };
+        document.getElementById("editDescInput").value = group.desc || "";
+        document.getElementById("editNewPhotoPreview").innerHTML = "";
+        document.getElementById("editPhotoInput").value = "";
+        editTarget.pendingPhotos = [];
+        renderExistingPhotos();
+        document.getElementById("editRecordModal").style.display = "flex";
+    }
+    
+    function renderExistingPhotos() {
+        const container = document.getElementById("existingPhotosList");
+        if(!container) return;
+        const photos = editTarget.currentPhotos || [];
+        if(photos.length === 0) { container.innerHTML = '<div style="color:#b88d40; padding:8px;">暂无照片，请追加新照片。</div>'; return; }
+        container.innerHTML = photos.map((photoUrl, idx) => `
+            <div class="existing-photo-item" data-photo-index="${idx}">
+                <img src="${photoUrl}" style="cursor:pointer;" class="existing-img-preview" data-img="${photoUrl}">
+                <button class="del-photo-btn" data-idx="${idx}"><i class="fas fa-trash-alt"></i> 删除</button>
+            </div>
+        `).join('');
+        container.querySelectorAll('.existing-img-preview').forEach(img => { img.addEventListener('click', (e) => { e.stopPropagation(); const allPhotos = editTarget.currentPhotos; const clickedUrl = img.getAttribute('data-img'); const startIdx = allPhotos.findIndex(p => p === clickedUrl); if(startIdx !== -1) showFullscreenWithList(allPhotos, startIdx); }); });
+        container.querySelectorAll('.del-photo-btn').forEach(btn => { btn.addEventListener('click', (e) => { if(!isSuperAdmin()) return; e.stopPropagation(); const idx = parseInt(btn.getAttribute('data-idx')); if(confirm("确定要删除这张照片吗？")) { editTarget.currentPhotos.splice(idx, 1); renderExistingPhotos(); } }); });
+    }
+    
+    function setupEditPhotoSelection() {
+        const fileInput = document.getElementById("editPhotoInput");
+        const previewDiv = document.getElementById("editNewPhotoPreview");
+        fileInput.onchange = function(e) {
+            const files = Array.from(fileInput.files);
+            files.forEach(f => {
+                const reader = new FileReader();
+                reader.onload = function(ev) {
+                    const img = document.createElement("img");
+                    img.src = ev.target.result;
+                    img.style.width = "80px"; img.style.height = "80px"; img.style.objectFit = "cover"; img.style.borderRadius = "10px"; img.style.border = "1px solid #F5CB86";
+                    previewDiv.appendChild(img);
+                    editTarget.pendingPhotos.push(ev.target.result);
+                };
+                reader.readAsDataURL(f);
+            });
+        };
+        document.getElementById("selectEditPhotosBtn").onclick = () => fileInput.click();
+        document.getElementById("editAddUrlBtn").onclick = () => {
+            let url = prompt("请输入图片URL（支持http/https）:");
+            if(url && url.trim()) {
+                editTarget.pendingPhotos.push(url.trim());
+                const img = document.createElement("img");
+                img.src = url.trim();
+                img.style.width = "80px"; img.style.height = "80px"; img.style.objectFit = "cover"; img.style.borderRadius = "10px"; img.style.border = "1px solid #F5CB86";
+                previewDiv.appendChild(img);
+            }
+        };
+    }
+    
+    function saveEditRecord() {
+        if(!isSuperAdmin()) return;
+        if(!editTarget.type) return;
+        const newDesc = document.getElementById("editDescInput").value;
+        const finalPhotos = [...editTarget.currentPhotos, ...editTarget.pendingPhotos];
+        const success = replacePhotoGroupFull(editTarget.type, editTarget.id, editTarget.groupId, finalPhotos, newDesc);
+        if(success) {
+            selectLocation(editTarget.type, editTarget.id, getDisplayName(editTarget.type, editTarget.id, 
+                editTarget.type === "city" ? (citiesData[editTarget.id]?.name || "城市") : 
+                (editTarget.type === "district" ? (chengduDistricts.find(d=>d.districtId===editTarget.id)?.name || "区县") : "地点")));
+            renderMap();
+            alert("记录已更新！照片和备注已保存。");
+        } else { alert("保存失败"); }
+        document.getElementById("editRecordModal").style.display = "none";
+        editTarget = { type: null, id: null, groupId: null, oldDesc: "", pendingPhotos: [], currentPhotos: [] };
+    }
+    
+    function updatePanelByLocation() {
+        if(!currentSelectedLocation) return;
+        let groups = loadPhotoGroups(currentSelectedLocation.type, currentSelectedLocation.id);
+        let times = groups.length;
+        document.getElementById("visitCountSpan").innerHTML = `${currentStrings.arrivalCountPrefix}${times}`;
+        let galleryDiv = document.getElementById("photoGallery");
+        if(groups.length===0) galleryDiv.innerHTML = `<div class="empty-tip">${currentStrings.noPhotoGalleryTip}</div>`;
+        else {
+            galleryDiv.innerHTML = groups.map(group => `
+                <div class="photo-record" data-groupid="${group.id}">
+                    <div class="thumbnail-strip">${group.photos.slice(0,3).map(p=>`<img src="${p}" onerror="this.src='https://via.placeholder.com/70?text=加载失败'">`).join('')}</div>
+                    <div class="record-desc">${currentStrings.recordDescPrefix}${escapeHtml(group.desc || currentStrings.noDescText)}</div>
+                    <div class="record-actions">
+                        ${isSuperAdmin() ? `<button class="edit-record-btn" data-groupid="${group.id}"><i class="fas fa-edit"></i> ${currentStrings.editRecordBtnText}</button>` : ''}
+                        ${isSuperAdmin() ? `<button class="del-record-btn" data-groupid="${group.id}"><i class="fas fa-trash"></i> ${currentStrings.deleteRecordBtnText}</button>` : ''}
+                    </div>
+                    <div class="click-detail-hint">${currentStrings.clickCardDetailHint}</div>
+                </div>
+            `).join('');
+            document.querySelectorAll('.photo-record').forEach(card => {
+                let gid = parseInt(card.dataset.groupid);
+                card.addEventListener('click', (e) => { if(e.target.classList.contains('edit-record-btn') || e.target.classList.contains('del-record-btn') || e.target.closest('.edit-record-btn') || e.target.closest('.del-record-btn')) return; showRecordDetail(currentSelectedLocation.type, currentSelectedLocation.id, gid, 0); });
+            });
+            if(isSuperAdmin()) {
+                document.querySelectorAll('.del-record-btn').forEach(btn => btn.addEventListener('click', (e) => { e.stopPropagation(); let gid = parseInt(btn.dataset.groupid); if(confirm("删除这条办案记录？")) { deletePhotoGroup(currentSelectedLocation.type, currentSelectedLocation.id, gid); selectLocation(currentSelectedLocation.type, currentSelectedLocation.id, currentSelectedLocation.name); renderMap(); } }));
+                document.querySelectorAll('.edit-record-btn').forEach(btn => btn.addEventListener('click', (e) => { e.stopPropagation(); let gid = parseInt(btn.dataset.groupid); openEditRecordModal(currentSelectedLocation.type, currentSelectedLocation.id, gid); }));
+            }
+        }
+    }
+    
+    function selectLocation(type, id, displayName) { 
+        currentSelectedLocation = { type, id, name: displayName }; 
+        document.getElementById("locationNameSpan").innerHTML = displayName; 
+        document.getElementById("infoPanel").style.display = "block"; 
+        document.getElementById("editNameBtn").style.display = isSuperAdmin() ? "inline-block" : "none"; 
+        updatePanelByLocation(); 
+        if(canUpload()) { 
+            document.getElementById("uploadArea").style.display = "flex"; 
+            pendingUploadPhotos = [];
+            renderUploadPreview();
+            document.getElementById("photoDescInput").value = "";
+        } else document.getElementById("uploadArea").style.display = "none"; 
+    }
+    
+    function deleteProvince(pid) { if(!isSuperAdmin()) return false; if(pid==="sc") { alert(currentStrings.scProtectedMsg); return false; } let prov=provincesData.find(p=>p.provinceId===pid); if(prov&&confirm(currentStrings.confirmDeleteProvinceMsg.replace("{name}",prov.name))){ if(citiesData[pid]) delete citiesData[pid]; provincesData=provincesData.filter(p=>p.provinceId!==pid); saveData(); if(currentLevel==="province"&&currentProvinceId===pid){ currentLevel="china"; currentProvinceId=null; updateBreadcrumbByLevel(); } renderMap(); clearPanel(); return true;} return false;}
+    function addCity(pid, cname) { if(!isSuperAdmin()) return; let prov=provincesData.find(p=>p.provinceId===pid); if(prov&&cname){ let newId=`city_${pid}_${Date.now()}`; if(!citiesData[pid]) citiesData[pid]=[]; citiesData[pid].push({ name:cname, lat:prov.lat+(Math.random()-0.5)*0.8, lng:prov.lng+(Math.random()-0.5)*0.8, cityId:newId }); saveData(); renderMap(); alert(`城市${cname}已添加`); } }
+    function deleteCity(pid, cid) { if(!isSuperAdmin()) return; let city=citiesData[pid]?.find(c=>c.cityId===cid); if(pid==="sc"&&city?.name==="成都市") { alert(currentStrings.chengduProtectedMsg); return; } if(city&&confirm(currentStrings.confirmDeleteCityMsg.replace("{name}",city.name))){ localStorage.removeItem(`lawyer_map_city_${cid}`); citiesData[pid]=citiesData[pid].filter(c=>c.cityId!==cid); saveData(); renderMap(); } }
+    function openLegacyManageModal() { if(!isSuperAdmin()) return; /* 完整管理模态框代码略保持原样，添加权限守卫 */ let html = `<div class="modal-content"><h3>${currentStrings.manageModalTitle}</h3><div><strong>${currentStrings.addProvinceLabel}</strong><br><input id="newProvName"><button id="doAddProvince">${currentStrings.addProvinceBtn}</button></div><div><strong>${currentStrings.delProvinceLabel}</strong><br><select id="delProvSelect"></select><button id="doDelProvince">${currentStrings.delProvinceBtn}</button></div><div><strong>${currentStrings.addCityLabel}</strong><br><select id="addCityProvSelect"></select><input id="newCityName"><button id="doAddCity">${currentStrings.addCityBtn}</button></div><div><strong>${currentStrings.delCityLabel}</strong><br><select id="delCityProvSelect"></select><select id="delCitySelect"></select><button id="doDelCity">${currentStrings.delCityBtn}</button></div><button id="closeManageModalBtn">${currentStrings.closeBtn}</button></div>`; let modalDiv = document.createElement("div"); modalDiv.className="modal"; modalDiv.style.display="flex"; modalDiv.innerHTML=html; document.body.appendChild(modalDiv); let close=()=>modalDiv.remove(); modalDiv.querySelector("#closeManageModalBtn").onclick=close; modalDiv.querySelector("#doAddProvince").onclick=()=>{ let name=modalDiv.querySelector("#newProvName").value.trim(); if(name){ let newId="prov_"+Date.now(); provincesData.push({ name, lat:35+(Math.random()-0.5)*10, lng:105+(Math.random()-0.5)*20, provinceId:newId }); citiesData[newId]=[]; saveData(); renderMap(); close(); } }; modalDiv.querySelector("#doDelProvince").onclick=()=>{ let pid=modalDiv.querySelector("#delProvSelect").value; if(pid){ deleteProvince(pid); close(); } }; modalDiv.querySelector("#doAddCity").onclick=()=>{ let pid=modalDiv.querySelector("#addCityProvSelect").value; let cname=modalDiv.querySelector("#newCityName").value.trim(); if(pid&&cname){ addCity(pid, cname); close(); } }; modalDiv.querySelector("#doDelCity").onclick=()=>{ let pid=modalDiv.querySelector("#delCityProvSelect").value; let cid=modalDiv.querySelector("#delCitySelect").value; if(pid&&cid&&cid!=="无城市") deleteCity(pid, cid); close(); }; let updateCityList=()=>{ let pid=modalDiv.querySelector("#delCityProvSelect").value; let cities=citiesData[pid]||[]; let sel=modalDiv.querySelector("#delCitySelect"); sel.innerHTML=cities.map(c=>`<option value="${c.cityId}">${c.name}</option>`).join(''); if(!cities.length) sel.innerHTML='<option>无城市</option>'; }; let provSelect=modalDiv.querySelector("#delCityProvSelect"); provSelect.innerHTML=provincesData.map(p=>`<option value="${p.provinceId}">${p.name}</option>`).join(''); provSelect.onchange=updateCityList; updateCityList(); modalDiv.querySelector("#delProvSelect").innerHTML=provincesData.filter(p=>p.provinceId!=="sc").map(p=>`<option value="${p.provinceId}">${p.name}</option>`).join(''); modalDiv.querySelector("#addCityProvSelect").innerHTML=provincesData.map(p=>`<option value="${p.provinceId}">${p.name}</option>`).join(''); }
+    function openDistrictManageModal() { if(!isSuperAdmin()) return; let html = `<div class="modal-content"><h3>${currentStrings.districtManageTitle}</h3><div><strong>${currentStrings.addDistrictLabel}</strong><br><input id="newDistrictName"><button id="doAddDistrict">${currentStrings.addDistrictBtn}</button></div><div><strong>${currentStrings.delDistrictLabel}</strong><br><select id="delDistrictSelect"></select><button id="doDelDistrict">${currentStrings.delDistrictBtn}</button><br><small>${currentStrings.delDistrictWarning}</small></div><button id="closeDistrictModalBtn">${currentStrings.closeBtn}</button></div>`; let modal=document.createElement("div"); modal.className="modal"; modal.style.display="flex"; modal.innerHTML=html; document.body.appendChild(modal); let close=()=>modal.remove(); modal.querySelector("#closeDistrictModalBtn").onclick=close; modal.querySelector("#doAddDistrict").onclick=()=>{ let name=modal.querySelector("#newDistrictName").value.trim(); if(name&&!chengduDistricts.some(d=>d.name===name)){ let newId="cd_"+Date.now(); chengduDistricts.push({ name, lat:30.5728+(Math.random()-0.5)*0.12, lng:104.0668+(Math.random()-0.5)*0.12, districtId:newId }); saveData(); renderMap(); close(); alert(`区县${name}已添加`); } }; modal.querySelector("#doDelDistrict").onclick=()=>{ let did=modal.querySelector("#delDistrictSelect").value; let dist=chengduDistricts.find(d=>d.districtId===did); if(dist&&confirm(currentStrings.confirmDeleteDistrictMsg.replace("{name}",dist.name))){ localStorage.removeItem(`lawyer_map_district_${did}`); chengduDistricts=chengduDistricts.filter(d=>d.districtId!==did); saveData(); renderMap(); close(); } }; let sel=modal.querySelector("#delDistrictSelect"); sel.innerHTML=chengduDistricts.map(d=>`<option value="${d.districtId}">${d.name}</option>`).join(''); }
+    function openAllTextsEditor() { if(!isSuperAdmin()) return; const container=document.getElementById("stringsEditorContainer"); container.innerHTML=""; for(let [key,val] of Object.entries(DEFAULT_STRINGS)){ let div=document.createElement("div"); div.className="strings-editor-grid"; let label=document.createElement("label"); label.innerText=key; let input=document.createElement("input"); if(key.includes("Msg")||key.includes("Format")||key.includes("Tip")||key.includes("Placeholder")||key.includes("Prompt")||key==="clickHintText"||key==="clickPhotoHint"||key==="clickCardDetailHint") input=document.createElement("textarea"); input.value=currentStrings[key]||""; input.rows=2; input.setAttribute("data-key",key); div.appendChild(label); div.appendChild(input); container.appendChild(div); } document.getElementById("allTextsModal").style.display="flex"; }
+    function saveAllTextsFromEditor() { if(!isSuperAdmin()) return; document.querySelectorAll("#stringsEditorContainer input, #stringsEditorContainer textarea").forEach(inp=>{ let key=inp.getAttribute("data-key"); if(key&&currentStrings.hasOwnProperty(key)) currentStrings[key]=inp.value; }); saveAllStrings(); applyStaticTexts(); if(map) renderMap(); if(currentSelectedLocation) selectLocation(currentSelectedLocation.type, currentSelectedLocation.id, currentSelectedLocation.name); alert(currentStrings.saveSuccessAlert); document.getElementById("allTextsModal").style.display="none"; }
+    function resetAllTexts() { if(!isSuperAdmin()) return; currentStrings={...DEFAULT_STRINGS}; saveAllStrings(); applyStaticTexts(); renderMap(); if(currentSelectedLocation) selectLocation(currentSelectedLocation.type, currentSelectedLocation.id, currentSelectedLocation.name); document.getElementById("allTextsModal").style.display="none"; alert("已恢复默认文案"); }
+    
+    function initEventHandlers() { 
+        document.getElementById("adminLoginBtn").addEventListener("click",()=>{ let pwd=prompt(currentStrings.adminPwdPrompt); if(pwd==="fayemax2026") setUserRole("superadmin"); else if(pwd==="faye2026") setUserRole("normaladmin"); else alert(currentStrings.adminPwdError); });
+        document.getElementById("adminLogoutBtn").addEventListener("click",()=>{ setUserRole("guest"); alert(currentStrings.adminLogoutMsg); });
+        document.getElementById("manageBtn").addEventListener("click",openLegacyManageModal);
+        document.getElementById("manageDistrictBtn").addEventListener("click",openDistrictManageModal);
+        document.getElementById("editAllTextsBtn").addEventListener("click",openAllTextsEditor);
+        document.getElementById("backBtn").addEventListener("click",backToParent);
+        document.getElementById("editNameBtn").addEventListener("click",()=>{ if(!isSuperAdmin()||!currentSelectedLocation) return; let newName=prompt("请输入新的地区名称:",currentSelectedLocation.name); if(newName&&newName.trim()){ setCustomName(currentSelectedLocation.type,currentSelectedLocation.id,newName.trim()); renderMap(); selectLocation(currentSelectedLocation.type,currentSelectedLocation.id,newName.trim()); } });
+        document.getElementById("uploadLogoBtn").addEventListener("click",()=>{ if(isSuperAdmin()) document.getElementById("logoFileInput").click(); else alert(currentStrings.onlyAdminLogo); });
+        document.getElementById("logoFileInput").addEventListener("change",(e)=>{ if(!isSuperAdmin()) return; let file=e.target.files[0]; if(file&&file.type.startsWith("image/")){ let reader=new FileReader(); reader.onload=(ev)=>{ document.getElementById("siteLogo").src=ev.target.result; localStorage.setItem("custom_lawyer_logo",ev.target.result); alert(currentStrings.logoUpdateAlert); }; reader.readAsDataURL(file); } });
+        document.getElementById("selectPhotosBtn").addEventListener("click",()=> document.getElementById("photoInput").click());
+        document.getElementById("photoInput").addEventListener("change",(e)=>{
+            const files = Array.from(e.target.files);
+            files.forEach(f=>{
+                const reader = new FileReader();
+                reader.onload = (ev) => { pendingUploadPhotos.push(ev.target.result); renderUploadPreview(); };
+                reader.readAsDataURL(f);
+            });
+            document.getElementById("photoInput").value = "";
+        });
+        document.getElementById("addUrlBtn").addEventListener("click",()=>{
+            let url = prompt("请输入图片URL（支持http/https）:");
+            if(url && url.trim()) { pendingUploadPhotos.push(url.trim()); renderUploadPreview(); }
+        });
+        document.getElementById("submitUploadBtn").addEventListener("click", submitUpload);
+        document.getElementById("closeRecordDetailBtn").addEventListener("click", () => document.getElementById("recordDetailModal").style.display = "none");
+        document.getElementById("closeFullscreenBtn").addEventListener("click", () => document.getElementById("fullscreenImageModal").style.display = "none");
+        document.getElementById("closeEditModalBtn").addEventListener("click", () => document.getElementById("editRecordModal").style.display = "none");
+        document.getElementById("saveEditRecordBtn").addEventListener("click", saveEditRecord);
+        setupEditPhotoSelection();
+        document.getElementById("prevImageBtn").addEventListener("click", () => { if (currentPhotoIndex > 0) { currentPhotoIndex--; updateFullscreenImage(); } });
+        document.getElementById("nextImageBtn").addEventListener("click", () => { if (currentPhotoIndex < currentPhotoList.length - 1) { currentPhotoIndex++; updateFullscreenImage(); } });
+        window.addEventListener("click", (e) => { if(e.target === document.getElementById("recordDetailModal")) document.getElementById("recordDetailModal").style.display = "none"; if(e.target === document.getElementById("fullscreenImageModal")) document.getElementById("fullscreenImageModal").style.display = "none"; if(e.target === document.getElementById("editRecordModal")) document.getElementById("editRecordModal").style.display = "none"; });
+    }
+    window.addEventListener('load',()=>{ map=L.map('map').setView([35.86,104.19],5); L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',{ attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a>' }).addTo(map); loadAllStrings(); loadData(); applyStaticTexts(); let savedLogo=localStorage.getItem("custom_lawyer_logo"); if(savedLogo) document.getElementById("siteLogo").src=savedLogo; let savedRole=localStorage.getItem("lawyer_user_role"); if(savedRole==="superadmin"||savedRole==="normaladmin") setUserRole(savedRole); else setUserRole("guest"); initEventHandlers(); renderMap(); clearPanel(); document.getElementById("saveAllTextsBtn").addEventListener("click",saveAllTextsFromEditor); document.getElementById("resetAllTextsBtn").addEventListener("click",resetAllTexts); document.getElementById("closeAllTextsModalBtn").addEventListener("click",()=>document.getElementById("allTextsModal").style.display="none"); });
+</script>
+</body>
+</html>
